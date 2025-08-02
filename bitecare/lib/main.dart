@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'loginpage.dart';
+// import 'signup_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,8 +12,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'PetCare',
       debugShowCheckedModeBanner: false,
-      home: const GetStartedPage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const GetStartedPage(),
+        '/login': (context) => const LoginPage(),
+        // '/signup': (context) => const SignupPage(),
+        '/home': (context) => const HomePage(), // Add your real home page here
+      },
     );
   }
 }
@@ -85,7 +93,7 @@ class GetStartedPage extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        // TODO: Add navigation to Register Page
+                        Navigator.pushNamed(context, '/signup');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.lightBlue,
@@ -100,10 +108,7 @@ class GetStartedPage extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const LoginPage()),
-                        );
+                        Navigator.pushNamed(context, '/login');
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey.shade200,
@@ -120,6 +125,19 @@ class GetStartedPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// OPTIONAL placeholder for home page
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Home')),
+      body: const Center(child: Text('Welcome to PetCare Dashboard!')),
     );
   }
 }
