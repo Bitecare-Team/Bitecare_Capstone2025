@@ -54,12 +54,38 @@ body {
   flex-shrink: 0;
   background: #3b82f6;
   color: white;
+  min-height: 60px;
+  position: relative;
 }
 
 .logo-section {
   display: flex;
   align-items: center;
   gap: 15px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar.closed .logo-section h2 {
+  display: none;
+}
+
+.sidebar.closed .logo-section {
+  justify-content: center;
+}
+
+.sidebar.closed .sidebar-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sidebar.closed .sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .logo-icon {
@@ -92,11 +118,18 @@ body {
   border-radius: 8px;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
 .sidebar-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+  transform: scale(1.1);
 }
 
 .sidebar-nav {
@@ -219,6 +252,15 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: all 0.3s ease;
+}
+
+.main-content.sidebar-open {
+  margin-left: 0;
+}
+
+.main-content.sidebar-closed {
+  margin-left: 0;
 }
 
 .content-header {
@@ -435,20 +477,6 @@ body {
   margin-bottom: 30px;
   flex: 1;
   align-content: start;
-}
-
-.content-row {
-  display: flex;
-  flex-direction: row;
-  gap: 25px;
-  margin-bottom: 30px;
-  flex: 1;
-  align-items: stretch;
-}
-
-.content-row .card {
-  flex: 1;
-  min-width: 0;
 }
 
 .card {

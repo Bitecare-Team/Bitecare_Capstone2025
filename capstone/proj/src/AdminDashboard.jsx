@@ -1,21 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './AdminDashboard.css';
 import Dashboard from './components/Dashboard.jsx';
 import AppointmentList from './components/AppointmentList.jsx';
 import PatientList from './components/PatientList.jsx';
 import PatientPayments from './components/PatientPayments.jsx';
-import PatientStatus from './components/PatientStatus.jsx';
 import Staff from './components/Staff.jsx';
 import Schedule from './components/Schedule.jsx';
 import VaccineManagement from './components/VaccineManagement.jsx';
 import AnalyticsReports from './components/AnalyticsReports.jsx';
 import Map from './components/Map.jsx';
+import ProfessionalHeader from './components/ProfessionalHeader.jsx';
 import { FaTachometerAlt, FaCalendarCheck, FaUsers, FaMoneyBill, FaUser, FaUserMd, FaCalendarAlt, FaSyringe, FaChartBar, FaMapMarkedAlt } from 'react-icons/fa';
+import { supabase } from './supabase';
 import logoImage from './assets/logo1.png';
 
+// eslint-disable-next-line no-unused-vars
 const AdminDashboard = ({ onLogout }) => {
-  const [activeSection, setActiveSection] = useState('patient-payments');
+  const [activeSection, setActiveSection] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    // Get current user
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <FaTachometerAlt /> },
@@ -74,7 +93,11 @@ const AdminDashboard = ({ onLogout }) => {
             />
             <h2>Bitecare</h2>
           </div>
-          <button className="sidebar-toggle" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+          <button 
+            className="sidebar-toggle" 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            title={isSidebarOpen ? 'Collapse Sidebar' : 'Expand Sidebar'}
+          >
             {isSidebarOpen ? '◀' : '▶'}
           </button>
         </div>
@@ -94,29 +117,10 @@ const AdminDashboard = ({ onLogout }) => {
       </div>
       {/* Main Content */}
       <div className={`main-content ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-        <header className="content-header">
-          <h1>Welcome to RHU Animal Bite Treatment Center - Admin Panel</h1>
-          <div className="header-actions">
-           
-            <div className="user-profile">
-              <div className="user-info">
-                <div className="user-name">Ryan Azhari</div>
-                <div className="user-role">Admin</div>
-              </div>
-              <div className="user-avatar">R</div>
-              <span className="user-dropdown">▼</span>
-            </div>
-            <div className="header-icons">
-              <div className="header-icon notification-icon">
-                <span>🔔</span>
-                <div className="notification-badge"></div>
-              </div>
-              <div className="header-icon">
-              <small>Last login: Today</small>
-              </div>
-            </div>
-          </div>
-        </header>
+        <ProfessionalHeader 
+          user={currentUser} 
+          onLogout={onLogout}
+        />
         <main className="content-main">
           {renderContent()}
         </main>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FaUsers, FaCalendarAlt, FaExclamationTriangle, FaSyringe, FaUserMd } from 'react-icons/fa';
 
-const Dashboard = () => {
+const StaffDashboardOverview = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   
   // Sample patient booking data for August 2025
@@ -100,7 +100,6 @@ const Dashboard = () => {
     
     return days;
   };
-
   return (
     <div className="content-section">
       {/* Dashboard Cards Section */}
@@ -109,7 +108,8 @@ const Dashboard = () => {
         borderRadius: '12px',
         padding: '20px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        // margin: '5px 5px 5px 5px'
+        marginTop: '24px',
+        marginBottom: '24px'
       }}>
         <h2 style={{
           margin: '0 0 20px 0',
@@ -122,159 +122,139 @@ const Dashboard = () => {
         
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '20px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '16px',
+          width: '100%'
         }}>
-          <div style={{
-            backgroundColor: '#3b82f6',
-            padding: '20px',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              marginBottom: '10px',
-              color: '#3b82f6',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaUsers size={24} />
-            </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'white' }}>Total Patients</h3>
-            <p style={{ margin: '0 0 15px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>1,247</p>
-          </div>
+                     <div style={{
+             backgroundColor: '#3b82f6',
+             padding: '16px',
+             borderRadius: '12px',
+             display: 'flex',
+             flexDirection: 'column',
+             alignItems: 'center',
+             textAlign: 'center',
+             color: 'white',
+             minHeight: '120px',
+             justifyContent: 'center'
+           }}>
+             <div style={{
+               fontSize: '32px',
+               marginBottom: '8px',
+               color: '#3b82f6',
+               backgroundColor: 'white',
+               borderRadius: '50%',
+               width: '50px',
+               height: '50px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center'
+             }}>
+               <FaUsers size={20} />
+             </div>
+             <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'white' }}>Total Patients</h3>
+             <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: 'white' }}>1,247</p>
+           </div>
           
-          <div style={{
-            backgroundColor: '#3b82f6',
-            padding: '20px',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              marginBottom: '10px',
-              color: '#3b82f6',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaCalendarAlt size={24} />
-            </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'white' }}>Total Appointments</h3>
-            <p style={{ margin: '0 0 15px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>156</p>
-          </div>
+                     <div style={{
+             backgroundColor: '#3b82f6',
+             padding: '16px',
+             borderRadius: '12px',
+             display: 'flex',
+             flexDirection: 'column',
+             alignItems: 'center',
+             textAlign: 'center',
+             color: 'white',
+             minHeight: '120px',
+             justifyContent: 'center'
+           }}>
+             <div style={{
+               fontSize: '32px',
+               marginBottom: '8px',
+               color: '#3b82f6',
+               backgroundColor: 'white',
+               borderRadius: '50%',
+               width: '50px',
+               height: '50px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center'
+             }}>
+               <FaCalendarAlt size={20} />
+             </div>
+             <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'white' }}>Total Appointments</h3>
+             <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: 'white' }}>156</p>
+           </div>
           
-          <div style={{
-            backgroundColor: '#3b82f6',
-            padding: '20px',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              marginBottom: '10px',
-              color: '#3b82f6',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaExclamationTriangle size={24} />
-            </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'white' }}>Missed Appointments</h3>
-            <p style={{ margin: '0 0 15px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>23</p>
-          </div>
+                     <div style={{
+             backgroundColor: '#3b82f6',
+             padding: '16px',
+             borderRadius: '12px',
+             display: 'flex',
+             flexDirection: 'column',
+             alignItems: 'center',
+             textAlign: 'center',
+             color: 'white',
+             minHeight: '120px',
+             justifyContent: 'center'
+           }}>
+             <div style={{
+               fontSize: '32px',
+               marginBottom: '8px',
+               color: '#3b82f6',
+               backgroundColor: 'white',
+               borderRadius: '50%',
+               width: '50px',
+               height: '50px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center'
+             }}>
+               <FaExclamationTriangle size={20} />
+             </div>
+             <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'white' }}>Missed Appointments</h3>
+             <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: 'white' }}>23</p>
+           </div>
           
-          <div style={{
-            backgroundColor: '#3b82f6',
-            padding: '20px',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              marginBottom: '10px',
-              color: '#3b82f6',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaSyringe size={24} />
-            </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'white' }}>Completed Vaccination</h3>
-            <p style={{ margin: '0 0 15px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>892</p>
-          </div>
-          
-          <div style={{
-            backgroundColor: '#3b82f6',
-            padding: '20px',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            color: 'white'
-          }}>
-            <div style={{
-              fontSize: '32px',
-              marginBottom: '10px',
-              color: '#3b82f6',
-              backgroundColor: 'white',
-              borderRadius: '50%',
-              width: '60px',
-              height: '60px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <FaUserMd size={24} />
-            </div>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', color: 'white' }}>Total Staff</h3>
-            <p style={{ margin: '0 0 15px 0', fontSize: '24px', fontWeight: 'bold', color: 'white' }}>45</p>
-          </div>
+                     <div style={{
+             backgroundColor: '#3b82f6',
+             padding: '16px',
+             borderRadius: '12px',
+             display: 'flex',
+             flexDirection: 'column',
+             alignItems: 'center',
+             textAlign: 'center',
+             color: 'white',
+             minHeight: '120px',
+             justifyContent: 'center'
+           }}>
+             <div style={{
+               fontSize: '32px',
+               marginBottom: '8px',
+               color: '#3b82f6',
+               backgroundColor: 'white',
+               borderRadius: '50%',
+               width: '50px',
+               height: '50px',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center'
+             }}>
+               <FaSyringe size={20} />
+             </div>
+             <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'white' }}>Completed Vaccination</h3>
+             <p style={{ margin: '0', fontSize: '20px', fontWeight: 'bold', color: 'white' }}>892</p>
+           </div>
         </div>
       </div>
-       {/* <h5 style={{ margin: 0, fontSize: '18px', color: '#374151' }}>Patient Booking Calendar</h5> */}
+
       {/* Calendar Section */}
       <div style={{
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '20px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        // margin: '5px 5px 5px 5px'
-        marginTop: '20px'
+        marginTop: '24px'
       }}>
         <div style={{
           position: 'relative'
@@ -285,7 +265,6 @@ const Dashboard = () => {
             alignItems: 'center',
             marginBottom: '20px'
           }}>
-            {/* <h3 style={{ margin: 0, fontSize: '18px', color: '#374151' }}>Patient Booking Calendar</h3> */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -294,20 +273,6 @@ const Dashboard = () => {
               left: '50%',
               transform: 'translateX(-50%)'
             }}>
-              {/* <button
-                onClick={goToToday}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  cursor: 'pointer'
-                }}
-              >
-                today
-              </button> */}
               <button
                 onClick={goToPreviousMonth}
                 style={{
@@ -370,4 +335,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard; 
+export default StaffDashboardOverview; 

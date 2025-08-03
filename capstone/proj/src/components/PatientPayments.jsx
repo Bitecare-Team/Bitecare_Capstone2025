@@ -60,7 +60,7 @@ const PatientPayments = () => {
     (selectedMethod === 'All Methods' || payment.method === selectedMethod)
   );
 
-  const getMethodTagStyle = (method) => {
+  const getMethodTagStyle = () => {
     return {
       backgroundColor: '#f3f4f6',
       color: '#374151',
@@ -99,26 +99,23 @@ const PatientPayments = () => {
     });
 
     // Convert to Excel format using XLSX library
-    const XLSX = require('xlsx');
-    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+    // Note: XLSX library needs to be installed for this to work
+    // const XLSX = require('xlsx');
+    // const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
 
     // Convert binary string to blob
-    const s2ab = (s) => {
-      const buf = new ArrayBuffer(s.length);
-      const view = new Uint8Array(buf);
-      for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
-      return buf;
-    };
 
-    const blob = new Blob([s2ab(wbout)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `payment_history_${new Date().toISOString().split('T')[0]}.xlsx`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    // const blob = new Blob([s2ab(wbout)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    // const link = document.createElement('a');
+    // const url = URL.createObjectURL(blob);
+    // link.setAttribute('href', url);
+    // link.setAttribute('download', `payment_history_${new Date().toISOString().split('T')[0]}.xlsx`);
+    // link.style.visibility = 'hidden';
+    // document.body.appendChild(link);
+    // link.click();
+    // document.body.removeChild(link);
+    alert('Export functionality requires XLSX library to be installed');
   };
 
   return (
