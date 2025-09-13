@@ -51,23 +51,8 @@ const Schedule = () => {
     }
   };
 
-  const handleDateClick = async (date) => {
+  const handleDateClick = (date) => {
     setSelectedDate(date);
-    
-    // Check if slots exist for this date
-    const { data: existingSlot } = await getAppointmentSlotsByDate(date);
-    
-    if (existingSlot) {
-      // Show details modal
-      setSelectedSlotData(existingSlot);
-      
-      // Get percentage data
-      const { data: percentageData } = await getSlotPercentage(date);
-      setSlotPercentage(percentageData);
-      
-      setIsDetailsModalOpen(true);
-    }
-    // Remove the automatic modal opening - only show when "Add Slots" is clicked
   };
 
   const handleAddSlots = async () => {
@@ -267,7 +252,10 @@ const Schedule = () => {
                     } ${day.isSelected ? 'selected' : ''} ${
                         hasSlot ? 'has-slots' : ''
                       } ${today ? 'today' : ''}`}
-                      onClick={() => handleDateClick(day.date.toISOString().split('T')[0])}
+                      onClick={() => {
+                        const dateStr = day.date.toISOString().split('T')[0];
+                        handleDateClick(dateStr);
+                      }}
                   >
                     {day.date.getDate()}
                       {hasSlot && slotInfo && (
@@ -300,6 +288,24 @@ const Schedule = () => {
         {/* Right Panel - Slots Display */}
         <div className="slots-panel">
           <h3>Slots for {selectedDate}</h3>
+          <div className="view-details-section">
+            <button 
+              className="btn-secondary"
+              onClick={async () => {
+                const { data: existingSlot } = await getAppointmentSlotsByDate(selectedDate);
+                if (existingSlot) {
+                  setSelectedSlotData(existingSlot);
+                  const { data: percentageData } = await getSlotPercentage(selectedDate);
+                  setSlotPercentage(percentageData);
+                  setIsDetailsModalOpen(true);
+                }
+              }}
+              disabled={!getSlotInfo(new Date(selectedDate))}
+            >
+              <FaInfoCircle style={{ color: 'white' }} />
+              View Details
+            </button>
+          </div>
           {(() => {
             const slotInfo = getSlotInfo(new Date(selectedDate));
             if (slotInfo) {
@@ -352,22 +358,25 @@ const Schedule = () => {
               );
             } else {
               return (
-          <div className="empty-slots-state">
-            <div className="empty-icon">🕐</div>
-            <h4>No slots configured</h4>
-            <p>Create appointment slots for this date to allow scheduling.</p>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              marginTop: '20px'
-            }}>
-                                         <button 
-                       className="btn-primary"
-                       onClick={() => setIsModalOpen(true)}
-                     >
-                       <FaPlus style={{ color: 'white' }} />
-                Add Slots
-                     </button>
+                <div className="empty-slots-state">
+                  <div className="empty-icon">🕐</div>
+                  <h4>No slots configured</h4>
+                  <p>Create appointment slots for this date to allow scheduling.</p>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    marginTop: '20px'
+                  }}>
+                    <button 
+                      className="btn-primary"
+                      onClick={() => {
+                        // Ensure we're using the currently selected date
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <FaPlus style={{ color: 'white' }} />
+                      Add Slots
+                    </button>
                   </div>
                 </div>
               );
@@ -1075,6 +1084,36 @@ const Schedule = () => {
         .save-btn:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+
+        .btn-secondary {
+          background: #6b7280;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          padding: 8px 16px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          margin-bottom: 16px;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+          background: #4b5563;
+          transform: translateY(-1px);
+        }
+
+        .btn-secondary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .view-details-section {
+          margin-bottom: 16px;
         }
 
         .spinner {
