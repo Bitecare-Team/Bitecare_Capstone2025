@@ -1,0 +1,17 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://ftnvuqjafzudgkbptvmg.supabase.co';
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bnZ1cWphZnp1ZGdrYnB0dm1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzNzIyNjcsImV4cCI6MjA2ODk0ODI2N30.CpJnuNt3SDKBcSKFTVVAkhejyF9sFMCtb6Yjc694FOM';
+
+// Debug logging
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Key exists:', !!supabaseAnonKey);
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true, // Enable URL detection for email confirmation
+    flowType: 'pkce', // Use PKCE flow for better security
+  },
+});
