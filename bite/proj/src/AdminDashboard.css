@@ -33,6 +33,14 @@ body {
   width: 280px;
   min-width: 280px;
   border-radius: 0 20px 20px 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 1000;
 }
 
 .sidebar.open {
@@ -189,6 +197,7 @@ body {
   color: white;
 }
 
+
 .nav-label {
   font-weight: 500;
   white-space: nowrap;
@@ -253,14 +262,15 @@ body {
   flex-direction: column;
   min-width: 0;
   transition: all 0.3s ease;
+  margin-left: 280px;
 }
 
 .main-content.sidebar-open {
-  margin-left: 0;
+  margin-left: 280px;
 }
 
 .main-content.sidebar-closed {
-  margin-left: 0;
+  margin-left: 80px;
 }
 
 .content-header {
@@ -1186,6 +1196,8 @@ body {
     border-right: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 0;
+    position: relative;
+    left: auto;
   }
   
   .sidebar.open {
@@ -1197,9 +1209,17 @@ body {
   }
   
   .main-content {
-    margin: 0;
+    margin-left: 0 !important;
     border-radius: 0;
     flex: 1;
+  }
+  
+  .main-content.sidebar-open {
+    margin-left: 0 !important;
+  }
+  
+  .main-content.sidebar-closed {
+    margin-left: 0 !important;
   }
   
   .content-grid {
@@ -1610,6 +1630,24 @@ body {
   font-size: 4rem;
   color: #cbd5e1;
   margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-icon svg {
+  color: #3b82f6;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  padding: 20px;
+  border-radius: 50%;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+}
+
+.empty-slots-state:hover .empty-icon svg {
+  transform: scale(1.1) rotate(15deg);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
 }
 
 .empty-slots-state h4 {
@@ -2036,6 +2074,79 @@ body {
 .insight-icon {
   font-size: 2rem;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+  margin: 0 auto 12px auto;
+}
+
+.insight-icon svg {
+  color: #3b82f6;
+}
+
+.insight-card:hover .insight-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+}
+
+/* Different colors for different insight types */
+.insight-card:nth-child(1) .insight-icon {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+
+.insight-card:nth-child(1) .insight-icon svg {
+  color: #d97706;
+}
+
+.insight-card:nth-child(1):hover .insight-icon {
+  background: linear-gradient(135deg, #fde68a 0%, #fbbf24 100%);
+  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.3);
+}
+
+.insight-card:nth-child(2) .insight-icon {
+  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+}
+
+.insight-card:nth-child(2) .insight-icon svg {
+  color: #be185d;
+}
+
+.insight-card:nth-child(2):hover .insight-icon {
+  background: linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 100%);
+  box-shadow: 0 6px 20px rgba(190, 24, 93, 0.3);
+}
+
+.insight-card:nth-child(3) .insight-icon {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.insight-card:nth-child(3) .insight-icon svg {
+  color: #1d4ed8;
+}
+
+.insight-card:nth-child(3):hover .insight-icon {
+  background: linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%);
+  box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+}
+
+.insight-card:nth-child(4) .insight-icon {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+}
+
+.insight-card:nth-child(4) .insight-icon svg {
+  color: #166534;
+}
+
+.insight-card:nth-child(4):hover .insight-icon {
+  background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+  box-shadow: 0 6px 20px rgba(22, 101, 52, 0.3);
 }
 
 .insight-card h4 {
@@ -2806,4 +2917,135 @@ body {
 .custom-marker:hover div {
   transform: scale(1.2);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Appointment Notification Styles */
+.appointment-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2000;
+  animation: slideInRight 0.3s ease-out;
+  max-width: 400px;
+  cursor: pointer;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notification-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  border: 1px solid #e2e8f0;
+  padding: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  transition: all 0.3s ease;
+  border-left: 4px solid #3b82f6;
+}
+
+.notification-content:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+.notification-icon {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  color: white;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.5);
+  }
+}
+
+.notification-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  font-size: 0.9rem;
+  color: #475569;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.notification-date {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.notification-close {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.notification-close:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+  transform: rotate(90deg);
+}
+
+/* Responsive design for notification */
+@media (max-width: 768px) {
+  .appointment-notification {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+
+  .notification-content {
+    padding: 16px;
+  }
+
+  .notification-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
 }

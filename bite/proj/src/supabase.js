@@ -83,6 +83,7 @@ export const createStaffAccount = async (username, email, password, userData = {
 
         if (profileError) {
           console.error('Error creating profile:', profileError);
+          throw new Error(`Failed to create profile: ${profileError.message}`);
         } else {
           console.log('Profile record created successfully');
         }
@@ -106,6 +107,9 @@ export const createStaffAccount = async (username, email, password, userData = {
 
         if (staffError) {
           console.error('Error creating staff details:', staffError);
+          // Try to clean up profile if staff_details creation fails
+          await supabase.from('profiles').delete().eq('id', data.user.id).catch(() => {});
+          throw new Error(`Failed to create staff details: ${staffError.message}`);
         } else {
           console.log('Staff details record created successfully');
         }
@@ -124,6 +128,7 @@ export const createStaffAccount = async (username, email, password, userData = {
 
         if (updateError) {
           console.error('Error updating user metadata:', updateError);
+          // Non-critical error, continue
         } else {
           console.log('User metadata updated with verification status');
         }
@@ -147,7 +152,8 @@ export const createStaffAccount = async (username, email, password, userData = {
 
         console.log('Staff account creation and verification completed successfully');
       } catch (profileError) {
-        console.error('Error in profile creation:', profileError);
+        console.error('Error in profile/staff creation:', profileError);
+        throw profileError; // Re-throw to be caught by outer catch
       }
     }
 
@@ -787,6 +793,48 @@ export const getAllAppointments = async () => {
   }
 };
 
+// Function to get pending appointments (status = 'pending')
+export const getPendingAppointments = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('status', 'pending')
+      .order('appointment_date', { ascending: true });
+
+    if (error) {
+      console.error('Error getting pending appointments:', error);
+      return { data: [], error };
+    }
+
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error('Error in getPendingAppointments:', error);
+    return { data: [], error };
+  }
+};
+
+// Function to get confirmed appointments (status = 'confirmed' or 'completed')
+export const getConfirmedAppointments = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('appointments')
+      .select('*')
+      .in('status', ['confirmed', 'completed'])
+      .order('appointment_date', { ascending: true });
+
+    if (error) {
+      console.error('Error getting confirmed appointments:', error);
+      return { data: [], error };
+    }
+
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error('Error in getConfirmedAppointments:', error);
+    return { data: [], error };
+  }
+};
+
 // Function to confirm an appointment
 export const confirmAppointment = async (appointmentId) => {
   try {
@@ -948,6 +996,100 @@ export const deleteVaccine = async (id) => {
   }
 };
 
+// Function to deduct vaccine stock based on people_per_vaccine
+export const deductVaccineStock = async (vaccineBrandName) => {
+  try {
+    if (!vaccineBrandName) {
+      return { data: null, error: null }; // No vaccine specified, skip deduction
+    }
+
+    // Find the vaccine by brand name
+    const { data: vaccines, error: fetchError } = await supabase
+      .from('vaccines')
+      .select('*')
+      .eq('vaccine_brand', vaccineBrandName)
+      .order('expiry_date', { ascending: true }) // Use earliest expiring vaccine first
+      .limit(1);
+
+    if (fetchError) {
+      console.error('Error fetching vaccine:', fetchError);
+      return { data: null, error: fetchError };
+    }
+
+    if (!vaccines || vaccines.length === 0) {
+      console.warn(`Vaccine "${vaccineBrandName}" not found in inventory`);
+      return { data: null, error: null }; // Vaccine not found, but don't fail the operation
+    }
+
+    const vaccine = vaccines[0];
+
+    // Check if vaccine is expired
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiryDate = new Date(vaccine.expiry_date);
+    expiryDate.setHours(0, 0, 0, 0);
+
+    if (expiryDate <= today) {
+      console.warn(`Vaccine "${vaccineBrandName}" has expired`);
+      return { data: null, error: { message: 'Vaccine has expired' } };
+    }
+
+    // Check if there's stock available
+    if (vaccine.stock_quantity <= 0) {
+      console.warn(`Vaccine "${vaccineBrandName}" is out of stock`);
+      return { data: null, error: { message: 'Vaccine is out of stock' } };
+    }
+
+    // Get or initialize usage counter
+    const currentUsageCount = vaccine.usage_count || 0;
+    const peoplePerVaccine = vaccine.people_per_vaccine || 1;
+    const newUsageCount = currentUsageCount + 1;
+
+    // If we've reached the threshold, deduct stock and reset counter
+    if (newUsageCount >= peoplePerVaccine) {
+      const newStockQuantity = Math.max(0, vaccine.stock_quantity - 1);
+      const resetUsageCount = 0; // Reset counter after deduction
+
+      const { data: updatedVaccine, error: updateError } = await supabase
+        .from('vaccines')
+        .update({
+          stock_quantity: newStockQuantity,
+          usage_count: resetUsageCount
+        })
+        .eq('id', vaccine.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating vaccine stock:', updateError);
+        return { data: null, error: updateError };
+      }
+
+      return { data: updatedVaccine, error: null };
+    } else {
+      // Just increment the usage counter
+      const { data: updatedVaccine, error: updateError } = await supabase
+        .from('vaccines')
+        .update({
+          usage_count: newUsageCount
+        })
+        .eq('id', vaccine.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating vaccine usage count:', updateError);
+        return { data: null, error: updateError };
+      }
+
+      return { data: updatedVaccine, error: null };
+    }
+  } catch (error) {
+    console.error('Error in deductVaccineStock:', error);
+    return { data: null, error };
+  }
+};
+
 // Treatment Records Functions
 export const createTreatmentRecord = async (treatmentData) => {
   try {
@@ -960,6 +1102,11 @@ export const createTreatmentRecord = async (treatmentData) => {
     if (error) {
       console.error('Error creating treatment record:', error);
       return { data: null, error };
+    }
+
+    // Deduct vaccine stock if vaccine_brand_name is provided
+    if (treatmentData.vaccine_brand_name) {
+      await deductVaccineStock(treatmentData.vaccine_brand_name);
     }
     
     return { data, error: null };
@@ -990,6 +1137,123 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
   }
 };
 
+// Function to automatically create treatment records for completed appointments without contact info
+export const autoCreateTreatmentRecordsForAppointmentsWithoutContact = async () => {
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'User not authenticated' } };
+    }
+
+    // Get all completed appointments
+    const { data: completedAppointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('status', 'completed');
+
+    if (appointmentsError) {
+      return { data: null, error: appointmentsError };
+    }
+
+    if (!completedAppointments || completedAppointments.length === 0) {
+      return { data: [], error: null, message: 'No completed appointments found' };
+    }
+
+    // Get all existing treatment records
+    const { data: existingRecords, error: recordsError } = await supabase
+      .from('treatment_records')
+      .select('appointment_id, patient_contact');
+
+    if (recordsError) {
+      return { data: null, error: recordsError };
+    }
+
+    // Create a set of appointment IDs and contacts that already have treatment records
+    const existingAppointmentIds = new Set(
+      existingRecords?.map(r => r.appointment_id).filter(Boolean) || []
+    );
+    const existingContacts = new Set(
+      existingRecords?.map(r => r.patient_contact).filter(Boolean) || []
+    );
+
+    // Filter appointments that:
+    // 1. Don't have a treatment record (by appointment_id)
+    // 2. Don't have contact info OR have contact info but no treatment record for that contact
+    const appointmentsToProcess = completedAppointments.filter(apt => {
+      // Skip if already has treatment record by appointment_id
+      if (apt.id && existingAppointmentIds.has(apt.id)) {
+        return false;
+      }
+      
+      // If has contact, check if there's already a record for this contact
+      if (apt.patient_contact && existingContacts.has(apt.patient_contact)) {
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (appointmentsToProcess.length === 0) {
+      return { data: [], error: null, message: 'All appointments already have treatment records' };
+    }
+
+    // Create treatment records for each appointment
+    const treatmentRecords = appointmentsToProcess.map(appointment => ({
+      appointment_id: appointment.id,
+      user_id: appointment.user_id || null,
+      patient_name: appointment.patient_name || 'Unknown',
+      patient_contact: appointment.patient_contact || null, // Allow null for patients without contact
+      patient_address: appointment.patient_address || null,
+      patient_age: appointment.patient_age || null,
+      patient_sex: appointment.patient_sex || null,
+      appointment_date: appointment.appointment_date || null,
+      date_bitten: appointment.date_bitten || null,
+      time_bitten: appointment.time_bitten || null,
+      site_of_bite: appointment.site_of_bite || null,
+      biting_animal: appointment.biting_animal || null,
+      animal_status: appointment.animal_status || null,
+      place_bitten_barangay: appointment.place_bitten || null,
+      provoked: appointment.provoke || null,
+      local_wound_treatment: appointment.washing_of_bite || appointment.local_wound_treatment || null,
+      type_of_exposure: null,
+      category_of_exposure: null,
+      vaccine_brand_name: null,
+      treatment_to_be_given: null,
+      route: null,
+      rig: null,
+      d0_date: null,
+      d3_date: null,
+      d7_date: null,
+      d14_date: null,
+      d28_30_date: null,
+      status_of_animal_date: null,
+      remarks: 'Auto-created treatment record',
+      created_by: user.id
+    }));
+
+    // Insert all treatment records
+    const { data: createdRecords, error: insertError } = await supabase
+      .from('treatment_records')
+      .insert(treatmentRecords)
+      .select();
+
+    if (insertError) {
+      console.error('Error creating treatment records:', insertError);
+      return { data: null, error: insertError };
+    }
+
+    return { 
+      data: createdRecords, 
+      error: null, 
+      message: `Successfully created ${createdRecords?.length || 0} treatment record(s)` 
+    };
+  } catch (error) {
+    console.error('Error:', error);
+    return { data: null, error };
+  }
+};
+
 export const getTreatmentRecords = async () => {
   try {
     const { data, error } = await supabase
@@ -1009,13 +1273,126 @@ export const getTreatmentRecords = async () => {
   }
 };
 
+// Get treatment record by appointment ID
+export const getTreatmentRecordByAppointmentId = async (appointmentId) => {
+  try {
+    const { data, error } = await supabase
+      .from('treatment_records')
+      .select('*')
+      .eq('appointment_id', appointmentId)
+      .single();
+    
+    if (error) {
+      // If no record found, that's okay - return null
+      if (error.code === 'PGRST116') {
+        return { data: null, error: null };
+      }
+      console.error('Error fetching treatment record:', error);
+      return { data: null, error };
+    }
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error:', error);
+    return { data: null, error };
+  }
+};
+
+// Get all unique barangays from barangays table
+export const getAllBarangays = async () => {
+  try {
+    // Query the barangays table directly
+    const { data, error } = await supabase
+      .from('barangays')
+      .select('*');
+
+    if (error) {
+      console.error('Error fetching barangays from barangays table:', error);
+      // Fallback: try to get from other tables if barangays table doesn't exist
+      return await getAllBarangaysFallback();
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('Barangays table is empty, falling back to other tables');
+      return await getAllBarangaysFallback();
+    }
+
+    // Extract barangay names from the table
+    // Try common column names: name, barangay_name, barangay
+    const barangayNames = (data || [])
+      .map(barangay => {
+        // Try different possible column names
+        return barangay.name || 
+               barangay.barangay_name || 
+               barangay.barangay ||
+               barangay.barangay_name ||
+               (Object.keys(barangay).length === 1 ? Object.values(barangay)[0] : null);
+      })
+      .filter(Boolean)
+      .sort();
+
+    console.log(`Fetched ${barangayNames.length} barangays from barangays table`);
+    return { data: barangayNames, error: null };
+  } catch (error) {
+    console.error('Error fetching barangays:', error);
+    // Fallback to extracting from other tables
+    return await getAllBarangaysFallback();
+  }
+};
+
+// Fallback function to extract barangays from appointments and treatment_records
+const getAllBarangaysFallback = async () => {
+  try {
+    const barangaySet = new Set();
+
+    // Get unique barangays from appointments table
+    const { data: appointments, error: appointmentsError } = await supabase
+      .from('appointments')
+      .select('place_bitten, patient_address');
+
+    if (!appointmentsError && appointments) {
+      appointments.forEach(apt => {
+        if (apt.place_bitten && apt.place_bitten.trim()) {
+          barangaySet.add(apt.place_bitten.trim());
+        }
+        if (apt.patient_address && apt.patient_address.trim()) {
+          barangaySet.add(apt.patient_address.trim());
+        }
+      });
+    }
+
+    // Get unique barangays from treatment_records table
+    const { data: treatmentRecords, error: treatmentError } = await supabase
+      .from('treatment_records')
+      .select('place_bitten_barangay, patient_address');
+
+    if (!treatmentError && treatmentRecords) {
+      treatmentRecords.forEach(record => {
+        if (record.place_bitten_barangay && record.place_bitten_barangay.trim()) {
+          barangaySet.add(record.place_bitten_barangay.trim());
+        }
+        if (record.patient_address && record.patient_address.trim()) {
+          barangaySet.add(record.patient_address.trim());
+        }
+      });
+    }
+
+    // Convert to sorted array
+    const sortedBarangays = Array.from(barangaySet).sort();
+    return { data: sortedBarangays, error: null };
+  } catch (error) {
+    console.error('Error in fallback barangay fetch:', error);
+    return { data: [], error };
+  }
+};
+
 // Get treatment records for authenticated patient by user ID
 export const getPatientTreatmentRecordsByUserId = async () => {
   try {
     const { data, error } = await supabase
       .from('treatment_records')
       .select('*')
-      .eq('patient_user_id', (await supabase.auth.getUser()).data.user?.id)
+      .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -1082,7 +1459,7 @@ export const checkUserHasTreatmentRecords = async () => {
     const { data, error } = await supabase
       .from('treatment_records')
       .select('id')
-      .eq('patient_user_id', user.user.id)
+      .eq('user_id', user.user.id)
       .limit(1);
     
     if (error) {
@@ -1094,5 +1471,547 @@ export const checkUserHasTreatmentRecords = async () => {
   } catch (error) {
     console.error('Error:', error);
     return { hasRecords: false, error };
+  }
+};
+
+// Dose Tracking Functions
+
+// Map dose numbers to database field names
+const getDoseFieldNames = (doseNumber) => {
+  const doseMap = {
+    1: { date: 'd0_date', status: 'd0_status', updatedBy: 'd0_updated_by', updatedAt: 'd0_updated_at' },
+    2: { date: 'd3_date', status: 'd3_status', updatedBy: 'd3_updated_by', updatedAt: 'd3_updated_at' },
+    3: { date: 'd7_date', status: 'd7_status', updatedBy: 'd7_updated_by', updatedAt: 'd7_updated_at' },
+    4: { date: 'd14_date', status: 'd14_status', updatedBy: 'd14_updated_by', updatedAt: 'd14_updated_at' },
+    5: { date: 'd28_30_date', status: 'd28_30_status', updatedBy: 'd28_30_updated_by', updatedAt: 'd28_30_updated_at' }
+  };
+  return doseMap[doseNumber] || null;
+};
+
+// Get patients by dose number
+export const getPatientsByDose = async (doseNumber, includeCompleted = false) => {
+  try {
+    const fieldNames = getDoseFieldNames(doseNumber);
+    if (!fieldNames) {
+      return { data: null, error: { message: 'Invalid dose number' } };
+    }
+
+    let query = supabase
+      .from('treatment_records')
+      .select('*')
+      .not(fieldNames.date, 'is', null);
+
+    if (!includeCompleted) {
+      query = query.in(fieldNames.status, ['pending', 'missed']);
+    }
+
+    const { data, error } = await query.order(fieldNames.date, { ascending: true });
+
+    if (error) {
+      console.error('Error fetching patients by dose:', error);
+      return { data: null, error };
+    }
+
+    // Enrich data with staff names who updated the status
+    // Batch profile lookups to avoid N+1 query problem
+    const uniqueUserIds = [...new Set(
+      (data || [])
+        .map(record => record[fieldNames.updatedBy])
+        .filter(id => id !== null && id !== undefined)
+    )];
+    
+    // Fetch all profiles in one query
+    const profileMap = new Map();
+    if (uniqueUserIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, username')
+        .in('id', uniqueUserIds);
+      
+      if (profiles) {
+        profiles.forEach(profile => {
+          const name = profile.first_name && profile.last_name
+            ? `${profile.first_name} ${profile.last_name}`
+            : profile.username || 'Unknown';
+          profileMap.set(profile.id, name);
+        });
+      }
+    }
+    
+    // Map profiles to records
+    const enrichedData = (data || []).map((record) => {
+      const updatedBy = record[fieldNames.updatedBy];
+      const updatedByName = updatedBy ? (profileMap.get(updatedBy) || null) : null;
+
+      return {
+        ...record,
+        updatedByName,
+        doseNumber,
+        doseDate: record[fieldNames.date],
+        doseStatus: record[fieldNames.status] || 'pending',
+        doseUpdatedAt: record[fieldNames.updatedAt]
+      };
+    });
+
+    return { data: enrichedData, error: null };
+  } catch (error) {
+    console.error('Error in getPatientsByDose:', error);
+    return { data: null, error };
+  }
+};
+
+// Update dose status
+export const updateDoseStatus = async (treatmentRecordId, doseNumber, status, updatedByUserId, updatedByName) => {
+  try {
+    const fieldNames = getDoseFieldNames(doseNumber);
+    if (!fieldNames) {
+      return { data: null, error: { message: 'Invalid dose number' } };
+    }
+
+    if (!['completed', 'missed'].includes(status)) {
+      return { data: null, error: { message: 'Status must be "completed" or "missed"' } };
+    }
+
+    // Get current treatment record
+    const { data: currentRecord, error: fetchError } = await supabase
+      .from('treatment_records')
+      .select('*')
+      .eq('id', treatmentRecordId)
+      .single();
+
+    if (fetchError || !currentRecord) {
+      return { data: null, error: fetchError || { message: 'Treatment record not found' } };
+    }
+
+    // Prepare update object
+    const updateData = {
+      [fieldNames.status]: status,
+      [fieldNames.updatedBy]: updatedByUserId,
+      [fieldNames.updatedAt]: new Date().toISOString()
+    };
+
+    // Get current injection_records or initialize as empty array
+    const injectionRecords = currentRecord.injection_records || [];
+    
+    // Add new injection record
+    const newInjectionRecord = {
+      dose_number: doseNumber,
+      injected_by_user_id: updatedByUserId,
+      injected_by_name: updatedByName || 'Unknown',
+      injected_at: new Date().toISOString(),
+      date_field: fieldNames.date,
+      status: status
+    };
+
+    updateData.injection_records = [...injectionRecords, newInjectionRecord];
+
+    // Update the treatment record
+    const { data, error } = await supabase
+      .from('treatment_records')
+      .update(updateData)
+      .eq('id', treatmentRecordId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating dose status:', error);
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error in updateDoseStatus:', error);
+    return { data: null, error };
+  }
+};
+
+// Get dose count by status
+export const getDoseCountByStatus = async (doseNumber, status) => {
+  try {
+    const fieldNames = getDoseFieldNames(doseNumber);
+    if (!fieldNames) {
+      return { count: 0, error: { message: 'Invalid dose number' } };
+    }
+
+    const { count, error } = await supabase
+      .from('treatment_records')
+      .select('id', { count: 'exact', head: true })
+      .eq(fieldNames.status, status)
+      .not(fieldNames.date, 'is', null);
+
+    if (error) {
+      console.error('Error getting dose count by status:', error);
+      return { count: 0, error };
+    }
+
+    return { count: count || 0, error: null };
+  } catch (error) {
+    console.error('Error in getDoseCountByStatus:', error);
+    return { count: 0, error };
+  }
+};
+
+// Get all dose statistics (pending, completed, missed counts for each dose)
+export const getAllDoseStatistics = async () => {
+  try {
+    const statistics = {};
+    
+    for (let doseNumber = 1; doseNumber <= 5; doseNumber++) {
+      const fieldNames = getDoseFieldNames(doseNumber);
+      if (!fieldNames) continue;
+
+      // Get counts for each status
+      const [pending, completed, missed] = await Promise.all([
+        getDoseCountByStatus(doseNumber, 'pending'),
+        getDoseCountByStatus(doseNumber, 'completed'),
+        getDoseCountByStatus(doseNumber, 'missed')
+      ]);
+
+      statistics[doseNumber] = {
+        pending: pending.count || 0,
+        completed: completed.count || 0,
+        missed: missed.count || 0,
+        total: (pending.count || 0) + (completed.count || 0) + (missed.count || 0)
+      };
+    }
+
+    return { data: statistics, error: null };
+  } catch (error) {
+    console.error('Error in getAllDoseStatistics:', error);
+    return { data: null, error };
+  }
+};
+
+// ============================================
+// GROUP CHAT AND PRESCRIPTION FUNCTIONS
+// ============================================
+
+// Create a new group
+export const createGroup = async (name, description = '', memberIds = []) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: null, error: { message: 'User not authenticated' } };
+    }
+
+    // Create the group
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .insert({
+        name,
+        description,
+        created_by: user.id
+      })
+      .select()
+      .single();
+
+    if (groupError) {
+      return { data: null, error: groupError };
+    }
+
+    // Add creator as admin member
+    await supabase
+      .from('group_members')
+      .insert({
+        group_id: group.id,
+        user_id: user.id,
+        role: 'admin'
+      });
+
+    // Add other members if provided
+    if (memberIds.length > 0) {
+      const members = memberIds.map(memberId => ({
+        group_id: group.id,
+        user_id: memberId,
+        role: 'member'
+      }));
+
+      await supabase
+        .from('group_members')
+        .insert(members);
+    }
+
+    return { data: group, error: null };
+  } catch (error) {
+    console.error('Error creating group:', error);
+    return { data: null, error };
+  }
+};
+
+// Add patient to group by contact (for patients without user accounts)
+export const addPatientToGroup = async (groupId, patientContact, patientName) => {
+  try {
+    const { data, error } = await supabase
+      .from('group_members')
+      .insert({
+        group_id: groupId,
+        patient_contact: patientContact,
+        patient_name: patientName,
+        role: 'member'
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error adding patient to group:', error);
+    return { data: null, error };
+  }
+};
+
+// Get all groups for current user
+export const getUserGroups = async () => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { data: [], error: null };
+    }
+
+    // Get groups where user is a member
+    const { data, error } = await supabase
+      .from('group_members')
+      .select(`
+        group_id,
+        groups (
+          id,
+          name,
+          description,
+          created_by,
+          created_at,
+          updated_at
+        )
+      `)
+      .eq('user_id', user.id);
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    // Also get groups where patient contact matches
+    const { data: appointmentData } = await getAllAppointments();
+    const patientContacts = (appointmentData || [])
+      .filter(apt => apt.patient_contact)
+      .map(apt => apt.patient_contact);
+
+    if (patientContacts.length > 0) {
+      const { data: patientGroups, error: patientError } = await supabase
+        .from('group_members')
+        .select(`
+          group_id,
+          groups (
+            id,
+            name,
+            description,
+            created_by,
+            created_at,
+            updated_at
+          )
+        `)
+        .in('patient_contact', patientContacts);
+
+      if (!patientError && patientGroups) {
+        // Merge and deduplicate
+        const allGroups = [...(data || []), ...patientGroups];
+        const uniqueGroups = Array.from(
+          new Map(allGroups.map(item => [item.group_id, item.groups])).values()
+        );
+        return { data: uniqueGroups, error: null };
+      }
+    }
+
+    const groups = (data || []).map(item => item.groups).filter(Boolean);
+    return { data: groups, error: null };
+  } catch (error) {
+    console.error('Error getting user groups:', error);
+    return { data: [], error };
+  }
+};
+
+// Get group members
+export const getGroupMembers = async (groupId) => {
+  try {
+    const { data, error } = await supabase
+      .from('group_members')
+      .select(`
+        id,
+        user_id,
+        patient_contact,
+        patient_name,
+        role,
+        joined_at,
+        profiles:user_id (
+          id,
+          username,
+          email,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('group_id', groupId)
+      .order('joined_at', { ascending: true });
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error('Error getting group members:', error);
+    return { data: [], error };
+  }
+};
+
+// Get messages for a group
+export const getGroupMessages = async (groupId, limit = 50) => {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        group_id,
+        sender_id,
+        sender_name,
+        sender_contact,
+        message_text,
+        message_type,
+        prescription_data,
+        file_url,
+        created_at,
+        profiles:sender_id (
+          id,
+          username,
+          email,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    return { data: (data || []).reverse(), error: null }; // Reverse to show oldest first
+  } catch (error) {
+    console.error('Error getting group messages:', error);
+    return { data: [], error };
+  }
+};
+
+// Send a message to a group
+export const sendGroupMessage = async (groupId, messageText, messageType = 'text', prescriptionData = null, fileUrl = null) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Get sender name from profile
+    let senderName = 'Unknown';
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, username')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        senderName = profile.first_name && profile.last_name
+          ? `${profile.first_name} ${profile.last_name}`
+          : profile.username || user.email;
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        group_id: groupId,
+        sender_id: user?.id || null,
+        sender_name: senderName,
+        message_text: messageText,
+        message_type: messageType,
+        prescription_data: prescriptionData,
+        file_url: fileUrl
+      })
+      .select()
+      .single();
+
+    if (error) {
+      return { data: null, error };
+    }
+
+    // If it's a prescription message, also create a prescription record
+    if (messageType === 'prescription' && prescriptionData) {
+      await supabase
+        .from('prescriptions')
+        .insert({
+          group_id: groupId,
+          message_id: data.id,
+          patient_contact: prescriptionData.patient_contact,
+          patient_name: prescriptionData.patient_name,
+          prescription_text: prescriptionData.prescription_text || messageText,
+          medication_details: prescriptionData.medication_details,
+          created_by: user?.id || null
+        });
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return { data: null, error };
+  }
+};
+
+// Get prescriptions for a group
+export const getGroupPrescriptions = async (groupId) => {
+  try {
+    const { data, error } = await supabase
+      .from('prescriptions')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    return { data: data || [], error: null };
+  } catch (error) {
+    console.error('Error getting prescriptions:', error);
+    return { data: [], error };
+  }
+};
+
+// Delete a group
+export const deleteGroup = async (groupId) => {
+  try {
+    const { error } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+
+    return { error };
+  } catch (error) {
+    console.error('Error deleting group:', error);
+    return { error };
+  }
+};
+
+// Remove member from group
+export const removeGroupMember = async (groupId, memberId) => {
+  try {
+    const { error } = await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .or(`user_id.eq.${memberId},patient_contact.eq.${memberId}`);
+
+    return { error };
+  } catch (error) {
+    console.error('Error removing group member:', error);
+    return { error };
   }
 }; 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FaEye, FaCheck, FaSearch, FaCog, FaChevronDown } from 'react-icons/fa';
-import { getAllAppointments, confirmAppointment, sendPatientNotification } from '../supabase';
+import { FaEye, FaCheck, FaSearch, FaCog, FaChevronDown, FaUser, FaPhone, FaMapMarkerAlt, FaCalendar, FaClock, FaPaw, FaExclamationTriangle, FaInfoCircle, FaTimes } from 'react-icons/fa';
+import { getAllAppointments, confirmAppointment, sendPatientNotification, getPendingAppointments, getConfirmedAppointments } from '../supabase';
 
 const AppointmentList = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,11 +12,14 @@ const AppointmentList = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' or 'confirmed'
+  const [pendingCount, setPendingCount] = useState(0);
+  const [confirmedCount, setConfirmedCount] = useState(0);
 
-  // Fetch appointments on component mount
+  // Fetch appointments when component mounts or tab changes
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [activeTab]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -35,13 +38,31 @@ const AppointmentList = () => {
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const { data, error } = await getAllAppointments();
+      
+      // Fetch appointments based on active tab from database
+      let result;
+      if (activeTab === 'pending') {
+        result = await getPendingAppointments();
+      } else {
+        result = await getConfirmedAppointments();
+      }
+      
+      const { data, error } = result;
       
       if (error) {
         setMessage(`Error loading appointments: ${error.message}`);
       } else {
-        setAppointments(data);
+        setAppointments(data || []);
       }
+      
+      // Also fetch counts for both tabs
+      const [pendingResult, confirmedResult] = await Promise.all([
+        getPendingAppointments(),
+        getConfirmedAppointments()
+      ]);
+      
+      if (pendingResult.data) setPendingCount(pendingResult.data.length);
+      if (confirmedResult.data) setConfirmedCount(confirmedResult.data.length);
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     } finally {
@@ -66,7 +87,7 @@ const AppointmentList = () => {
           'appointment_confirmed'
         );
         
-        // Refresh appointments list
+        // Refresh appointments list and counts
         await fetchAppointments();
         setOpenDropdown(null);
         
@@ -80,12 +101,9 @@ const AppointmentList = () => {
     }
   };
 
-  // Filter appointments based on search term and exclude completed appointments
+  // Filter appointments based on search term (status filtering is done in database)
   const filteredAppointments = appointments.filter(appointment => {
-    // First filter out completed appointments
-    if (appointment.status === 'completed') return false;
-    
-    // Then apply search filter
+    // Apply search filter
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -104,10 +122,10 @@ const AppointmentList = () => {
   const startIndex = (currentPage - 1) * rowsPerPage;
   const paginatedAppointments = filteredAppointments.slice(startIndex, startIndex + rowsPerPage);
 
-  // Reset to first page when search term changes
+  // Reset to first page when search term, rows per page, or active tab changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, rowsPerPage]);
+  }, [searchTerm, rowsPerPage, activeTab]);
 
   const handleViewDetails = (appointment) => {
     setSelectedAppointment(appointment);
@@ -118,6 +136,7 @@ const AppointmentList = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'confirmed':
+      case 'completed': // Treat completed as confirmed for display
         return { backgroundColor: '#10b981', color: 'white' };
       case 'pending':
         return { backgroundColor: '#f59e0b', color: 'white' };
@@ -126,6 +145,14 @@ const AppointmentList = () => {
       default:
         return { backgroundColor: '#6b7280', color: 'white' };
     }
+  };
+
+  // Get display status - show "confirmed" for completed appointments
+  const getDisplayStatus = (status) => {
+    if (status === 'completed') {
+      return 'confirmed';
+    }
+    return status || 'pending';
   };
 
   const formatDate = (dateString) => {
@@ -191,6 +218,96 @@ const AppointmentList = () => {
             </div>
           )}
         
+        </div>
+
+        {/* Tabs for Pending and Completed */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginBottom: '24px',
+          borderBottom: '2px solid #e5e7eb',
+          paddingBottom: '0'
+        }}>
+          <button
+            onClick={() => setActiveTab('pending')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'pending' ? '#3b82f6' : 'transparent',
+              color: activeTab === 'pending' ? 'white' : '#6b7280',
+              border: 'none',
+              borderBottom: activeTab === 'pending' ? '3px solid #3b82f6' : '3px solid transparent',
+              borderRadius: '8px 8px 0 0',
+              fontSize: '15px',
+              fontWeight: activeTab === 'pending' ? '600' : '500',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'pending') {
+                e.target.style.backgroundColor = '#f3f4f6';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'pending') {
+                e.target.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            Pending Appointments
+            <span style={{
+              backgroundColor: activeTab === 'pending' ? 'rgba(255, 255, 255, 0.3)' : '#e5e7eb',
+              color: activeTab === 'pending' ? 'white' : '#6b7280',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              {pendingCount}
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveTab('confirmed')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: activeTab === 'confirmed' ? '#3b82f6' : 'transparent',
+              color: activeTab === 'confirmed' ? 'white' : '#6b7280',
+              border: 'none',
+              borderBottom: activeTab === 'confirmed' ? '3px solid #3b82f6' : '3px solid transparent',
+              borderRadius: '8px 8px 0 0',
+              fontSize: '15px',
+              fontWeight: activeTab === 'confirmed' ? '600' : '500',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'confirmed') {
+                e.target.style.backgroundColor = '#f3f4f6';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'confirmed') {
+                e.target.style.backgroundColor = 'transparent';
+              }
+            }}
+          >
+            Confirmed Appointments
+            <span style={{
+              backgroundColor: activeTab === 'confirmed' ? 'rgba(255, 255, 255, 0.3)' : '#e5e7eb',
+              color: activeTab === 'confirmed' ? 'white' : '#6b7280',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              {confirmedCount}
+            </span>
+          </button>
         </div>
 
         {/* Search and Controls */}
@@ -361,6 +478,17 @@ const AppointmentList = () => {
                   letterSpacing: '0.1em',
                   borderBottom: '2px solid rgba(255, 255, 255, 0.2)'
                 }}>
+                  Location
+                </th>
+                <th style={{
+                  padding: '24px 20px',
+                  textAlign: 'center',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.1em',
+                  borderBottom: '2px solid rgba(255, 255, 255, 0.2)'
+                }}>
                   Status
                 </th>
                 <th style={{
@@ -379,7 +507,7 @@ const AppointmentList = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="8" style={{
+                  <td colSpan="9" style={{
                     padding: '40px',
                     textAlign: 'center',
                     color: '#6b7280',
@@ -390,7 +518,7 @@ const AppointmentList = () => {
                 </tr>
               ) : filteredAppointments.length === 0 ? (
                 <tr>
-                  <td colSpan="8" style={{
+                  <td colSpan="9" style={{
                     padding: '40px',
                     textAlign: 'center',
                     color: '#6b7280',
@@ -402,6 +530,7 @@ const AppointmentList = () => {
               ) : (
                 paginatedAppointments.map((appointment) => {
                   const statusBadge = getStatusBadge(appointment.status);
+                  const displayStatus = getDisplayStatus(appointment.status);
 
                 return (
                   <tr key={appointment.id} style={{
@@ -464,6 +593,15 @@ const AppointmentList = () => {
                       fontWeight: '500'
                     }}>{appointment.reason || 'General consultation'}</td>
                     <td style={{
+                      padding: '20px',
+                      textAlign: 'center',
+                      color: '#475569',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}>
+                      {appointment.place_bitten || 'N/A'}
+                    </td>
+                    <td style={{
                       padding: '20px'
                     }}>
                       <span style={{
@@ -476,138 +614,53 @@ const AppointmentList = () => {
                         textTransform: 'capitalize',
                         boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                       }}>
-                        {appointment.status || 'pending'}
+                        {displayStatus}
                       </span>
                     </td>
                     <td style={{
-                      padding: '20px',
+                      padding: '16px',
+                      verticalAlign: 'middle',
                       textAlign: 'center'
                     }}>
-                      <div 
-                        className="dropdown-container"
-                        style={{
-                          position: 'relative',
-                          display: 'inline-block'
-                        }}
-                      >
+                      <div style={{
+                        display: 'flex',
+                        gap: '8px',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}>
                         <button
-                          onClick={() => setOpenDropdown(openDropdown === appointment.id ? null : appointment.id)}
+                          onClick={() => handleViewDetails(appointment)}
                           style={{
-                            padding: '12px 20px',
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '10px',
+                            padding: '8px 16px',
+                            backgroundColor: '#eff6ff',
+                            color: '#1e40af',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: '8px',
                             fontSize: '13px',
-                            fontWeight: '600',
+                            fontWeight: '500',
                             cursor: 'pointer',
+                            transition: 'all 0.2s ease',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+                            gap: '6px',
+                            boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
                           }}
                           onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#dbeafe';
+                            e.target.style.borderColor = '#93c5fd';
                             e.target.style.transform = 'translateY(-1px)';
-                            e.target.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15)';
+                            e.target.style.boxShadow = '0 4px 6px rgba(59, 130, 246, 0.2)';
                           }}
                           onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = '#eff6ff';
+                            e.target.style.borderColor = '#bfdbfe';
                             e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+                            e.target.style.boxShadow = '0 1px 3px rgba(59, 130, 246, 0.1)';
                           }}
                         >
-                          <span style={{
-                            fontSize: '14px'
-                          }}>⚙️</span>
-                          Actions
-                          <span style={{
-                            fontSize: '10px',
-                            transition: 'transform 0.2s ease',
-                            transform: openDropdown === appointment.id ? 'rotate(180deg)' : 'rotate(0deg)',
-                            color: 'white'
-                          }}>
-                            ▼
-                          </span>
+                          <FaEye size={12} />
+                          View Details
                         </button>
-                        
-                        {openDropdown === appointment.id && (
-                          <div style={{
-                            position: 'absolute',
-                            top: '100%',
-                            right: '0',
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                            zIndex: 1000,
-                            minWidth: '140px',
-                            marginTop: '4px'
-                          }}>
-                            <button
-                              onClick={() => handleViewDetails(appointment)}
-                              style={{
-                                width: '100%',
-                                padding: '12px 16px',
-                                backgroundColor: 'transparent',
-                                color: '#1e293b',
-                                border: 'none',
-                                textAlign: 'left',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                cursor: 'pointer',
-                                borderBottom: '1px solid #f1f5f9',
-                                transition: 'all 0.2s ease',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px'
-                              }}
-                              onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#f8fafc';
-                                e.target.style.color = '#3b82f6';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = 'transparent';
-                                e.target.style.color = '#1e293b';
-                              }}
-                            >
-                              <FaCog style={{
-                                color: 'white',
-                                fontSize: '14px',
-                                marginRight: '8px'
-                              }} />
-                              Actions
-                            </button>
-                            {appointment.status !== 'confirmed' && (
-                              <button
-                                onClick={() => {
-                                  handleConfirmAppointment(
-                                    appointment.id,
-                                    appointment.patient_email,
-                                    appointment.patient_name
-                                  );
-                                }}
-                                style={{
-                                  width: '100%',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.target.style.backgroundColor = '#f0fdf4';
-                                  e.target.style.color = '#059669';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.target.style.backgroundColor = 'transparent';
-                                  e.target.style.color = '#10b981';
-                                }}
-                              >
-                                <FaCheck style={{
-                                  fontSize: '14px',
-                                  marginRight: '8px',
-                                  color: '#10b981'
-                                }} />
-                                Confirm Appointment
-                              </button>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -693,342 +746,575 @@ const AppointmentList = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
-        }}>
+          zIndex: 1000,
+          padding: '20px'
+        }} onClick={() => setIsDetailsModalOpen(false)}>
           <div style={{
             backgroundColor: 'white',
-            borderRadius: '16px',
-            padding: '32px',
-            maxWidth: '600px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-          }}>
+            borderRadius: '20px',
+            padding: 0,
+            maxWidth: '900px',
+            width: '100%',
+            maxHeight: '90vh',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column'
+          }} onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
             <div style={{
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              padding: '24px 32px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '24px',
-              borderBottom: '2px solid #f1f5f9',
-              paddingBottom: '16px'
+              color: 'white'
             }}>
-              <h3 style={{
-                margin: 0,
-                fontSize: '24px',
-                fontWeight: '700',
-                color: '#0f172a'
-              }}>
-                Appointment Details
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px'
+                }}>
+                  <FaInfoCircle />
+                </div>
+                <div>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: '24px',
+                    fontWeight: '700',
+                    color: 'white'
+                  }}>
+                    Appointment Details
+                  </h3>
+                  <p style={{
+                    margin: '4px 0 0 0',
+                    fontSize: '14px',
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    fontWeight: '400'
+                  }}>
+                    {selectedAppointment.patient_name || 'Patient Information'}
+                  </p>
+                </div>
+              </div>
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
                 style={{
-                  background: 'none',
+                  background: 'rgba(255, 255, 255, 0.2)',
                   border: 'none',
-                  fontSize: '24px',
+                  fontSize: '20px',
                   cursor: 'pointer',
-                  color: '#64748b',
-                  padding: '4px',
-                  borderRadius: '6px',
+                  color: 'white',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  width: '40px',
+                  height: '40px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#f1f5f9';
-                  e.target.style.color = '#ef4444';
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                  e.target.style.transform = 'rotate(90deg)';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = 'transparent';
-                  e.target.style.color = '#64748b';
+                  e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                  e.target.style.transform = 'rotate(0deg)';
                 }}
               >
-                ✕
+                <FaTimes />
               </button>
             </div>
 
+            {/* Modal Body */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '24px',
-              marginBottom: '24px'
+              padding: '32px',
+              overflowY: 'auto',
+              flex: 1
             }}>
-              {/* Patient Information */}
+              {/* Status Badge */}
               <div style={{
-                backgroundColor: '#f0fdf4',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '1px solid #bbf7d0'
+                marginBottom: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
-                <h4 style={{
-                  margin: '0 0 16px 0',
-                  fontSize: '16px',
+                <span style={{
+                  backgroundColor: getStatusBadge(selectedAppointment.status).backgroundColor,
+                  color: getStatusBadge(selectedAppointment.status).color,
+                  padding: '8px 16px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
                   fontWeight: '600',
-                  color: '#1e293b'
+                  textTransform: 'capitalize',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                 }}>
-                  Patient Information
-                </h4>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Full Name</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '600',
+                  {getDisplayStatus(selectedAppointment.status)}
+                </span>
+                <span style={{
+                  color: '#64748b',
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <FaCalendar style={{ fontSize: '12px' }} />
+                  Appointment Date: {formatDate(selectedAppointment.appointment_date)}
+                </span>
+              </div>
+
+              {/* Patient Information Section */}
+              <div style={{
+                marginBottom: '24px'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '20px',
+                  paddingBottom: '12px',
+                  borderBottom: '2px solid #e2e8f0'
+                }}>
+                  <FaUser style={{ color: '#3b82f6', fontSize: '18px' }} />
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: '700',
                     color: '#1e293b'
-                  }}>{selectedAppointment.patient_name || 'N/A'}</p>
+                  }}>
+                    Patient Information
+                  </h4>
                 </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Age</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.patient_age || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Sex</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.patient_sex || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Date of Birth</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.date_of_birth ? formatDate(selectedAppointment.date_of_birth) : 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Address</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.patient_address || 'N/A'}</p>
-                </div>
-                <div>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#064e3b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Contact</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.patient_contact || 'N/A'}</p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '20px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Full Name</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {selectedAppointment.patient_name || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Age</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {selectedAppointment.patient_age || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Gender</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {selectedAppointment.patient_sex || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Date of Birth</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {selectedAppointment.date_of_birth ? formatDate(selectedAppointment.date_of_birth) : 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <FaMapMarkerAlt style={{ fontSize: '10px' }} />
+                      Address
+                    </label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0',
+                      lineHeight: '1.5'
+                    }}>
+                      {selectedAppointment.patient_address || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <FaPhone style={{ fontSize: '10px' }} />
+                      Contact Number
+                    </label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#f8fafc',
+                      borderRadius: '8px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {selectedAppointment.patient_contact || 'N/A'}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Bite Information */}
-              <div style={{
-                backgroundColor: '#fef2f2',
-                padding: '20px',
-                borderRadius: '12px',
-                border: '1px solid #fecaca'
-              }}>
-                <h4 style={{
-                  margin: '0 0 16px 0',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: '#1e293b'
+              {/* Bite Information Section */}
+              <div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '20px',
+                  paddingBottom: '12px',
+                  borderBottom: '2px solid #e2e8f0'
                 }}>
-                  Bite Information
-                </h4>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Date Bitten</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
+                  <FaExclamationTriangle style={{ color: '#ef4444', fontSize: '18px' }} />
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: '18px',
+                    fontWeight: '700',
                     color: '#1e293b'
-                  }}>{selectedAppointment.date_bitten ? formatDate(selectedAppointment.date_bitten) : 'N/A'}</p>
+                  }}>
+                    Bite Incident Information
+                  </h4>
                 </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Time Bitten</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.time_bitten || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Site of Bite</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.site_of_bite || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Biting Animal</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.biting_animal || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Animal Status</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.animal_status || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Place Bitten (Barangay)</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.place_bitten || 'N/A'}</p>
-                </div>
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Provoked</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.provoke || 'N/A'}</p>
-                </div>
-                <div>
-                  <label style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: '#991b1b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em'
-                  }}>Local Wound Treatment</label>
-                  <p style={{
-                    margin: '4px 0 0 0',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    color: '#1e293b'
-                  }}>{selectedAppointment.local_wound_treatment || 'N/A'}</p>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '20px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <FaCalendar style={{ fontSize: '10px' }} />
+                      Date Bitten
+                    </label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.date_bitten ? formatDate(selectedAppointment.date_bitten) : 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Site of Bite</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.site_of_bite || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <FaPaw style={{ fontSize: '10px' }} />
+                      Biting Animal
+                    </label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.biting_animal || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Animal Status</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.animal_status || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      <FaMapMarkerAlt style={{ fontSize: '10px' }} />
+                      Place Bitten (Barangay)
+                    </label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.place_bitten || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Provoked</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca'
+                    }}>
+                      {selectedAppointment.provoke || 'N/A'}
+                    </div>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
+                  }}>
+                    <label style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>Local Wound Treatment</label>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      color: '#1e293b',
+                      padding: '10px 14px',
+                      background: '#fef2f2',
+                      borderRadius: '8px',
+                      border: '1px solid #fecaca',
+                      lineHeight: '1.5'
+                    }}>
+                      {selectedAppointment.local_wound_treatment || 'N/A'}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
+            {/* Modal Footer */}
             <div style={{
+              padding: '24px 32px',
+              borderTop: '1px solid #e2e8f0',
               display: 'flex',
               gap: '12px',
-              justifyContent: 'flex-end'
+              justifyContent: 'flex-end',
+              background: '#f8fafc'
             }}>
               <button
                 onClick={() => setIsDetailsModalOpen(false)}
                 style={{
                   padding: '12px 24px',
-                  backgroundColor: '#f1f5f9',
+                  backgroundColor: 'white',
                   color: '#64748b',
-                  border: 'none',
-                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
                   fontSize: '14px',
-                  fontWeight: '500',
+                  fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
                 onMouseEnter={(e) => {
-                  e.target.style.backgroundColor = '#e2e8f0';
+                  e.target.style.backgroundColor = '#f1f5f9';
+                  e.target.style.borderColor = '#cbd5e1';
                 }}
                 onMouseLeave={(e) => {
-                  e.target.style.backgroundColor = '#f1f5f9';
+                  e.target.style.backgroundColor = 'white';
+                  e.target.style.borderColor = '#e2e8f0';
                 }}
               >
+                <FaTimes style={{ fontSize: '12px' }} />
                 Close
               </button>
-              {selectedAppointment.status !== 'confirmed' && (
+              {selectedAppointment.status !== 'confirmed' && selectedAppointment.status !== 'completed' && (
                 <button
                   onClick={() => {
                     handleConfirmAppointment(
@@ -1040,26 +1326,30 @@ const AppointmentList = () => {
                   }}
                   style={{
                     padding: '12px 24px',
-                    backgroundColor: '#10b981',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     fontSize: '14px',
                     fontWeight: '600',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                   }}
                   onMouseEnter={(e) => {
                     e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
                   }}
                   onMouseLeave={(e) => {
                     e.target.style.transform = 'translateY(0)';
                     e.target.style.boxShadow = '0 2px 4px rgba(16, 185, 129, 0.2)';
                   }}
                 >
-                  ✅ Confirm Appointment
+                  <FaCheck style={{ fontSize: '12px' }} />
+                  Confirm Appointment
                 </button>
               )}
             </div>

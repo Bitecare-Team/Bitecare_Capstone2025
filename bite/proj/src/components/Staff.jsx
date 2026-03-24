@@ -237,15 +237,33 @@ const Staff = () => {
     );
 
     if (error) {
-      setMessage(`❌ Error creating staff account: ${error.message}`);
+      console.error('Full error details:', error);
+      let errorMessage = `❌ Error creating staff account: ${error.message}`;
+      
+      // Provide more specific error messages
+      if (error.message?.includes('profile')) {
+        errorMessage += '\n\nPossible causes:\n- Username or email already exists\n- Database permission issue\n- Check browser console for details';
+      } else if (error.message?.includes('staff_details')) {
+        errorMessage += '\n\nPossible causes:\n- Missing required fields\n- Database permission issue\n- Check browser console for details';
+      } else if (error.message?.includes('email') || error.message?.includes('Email')) {
+        errorMessage += '\n\nThis email address may already be in use.';
+      } else if (error.message?.includes('username') || error.message?.includes('Username')) {
+        errorMessage += '\n\nThis username may already be in use.';
+      }
+      
+      setMessage(errorMessage);
     } else {
       setMessage('✅ Staff account created successfully!');
       resetForm();
-      await fetchStaffData();
-      setTimeout(() => {
-        setIsModalOpen(false);
-        setMessage('');
-      }, 2000);
+      
+      // Close modal first
+      setIsModalOpen(false);
+      setMessage('');
+      
+      // Wait a moment for database to commit, then refresh data
+      setTimeout(async () => {
+        await fetchStaffData();
+      }, 500);
     }
   };
 
@@ -316,11 +334,15 @@ const Staff = () => {
 
       setMessage('✅ Staff account updated successfully!');
       resetForm();
-      await fetchStaffData();
-      setTimeout(() => {
-        setIsUpdateModalOpen(false);
-        setMessage('');
-      }, 2000);
+      
+      // Close modal first
+      setIsUpdateModalOpen(false);
+      setMessage('');
+      
+      // Wait a moment for database to commit, then refresh data
+      setTimeout(async () => {
+        await fetchStaffData();
+      }, 500);
     } catch (error) {
       setMessage(`❌ Error updating staff account: ${error.message}`);
     }
@@ -399,6 +421,13 @@ const Staff = () => {
       dateHired: staff.date_hired || '',
       status: staff.status || 'Active'
     });
+    // Set existing image preview if available
+    if (staff.profiles?.profile_image) {
+      setImagePreview(staff.profiles.profile_image);
+    } else {
+      setImagePreview(null);
+    }
+    setSelectedImage(null);
     setIsUpdateModalOpen(true);
   };
 
@@ -419,6 +448,8 @@ const Staff = () => {
       dateHired: '',
       status: 'Active'
     });
+    setSelectedImage(null);
+    setImagePreview(null);
   };
 
   const formatDate = (dateString) => {
@@ -555,25 +586,6 @@ const Staff = () => {
                   Clear
                 </button>
               )}
-              <button 
-                onClick={fetchStaffData}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: '#10b981',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                🔄 Refresh
-              </button>
               <button 
                 onClick={openModal}
                 style={{
@@ -1117,7 +1129,12 @@ const Staff = () => {
                         type="button"
                         onClick={() => {
                           setSelectedImage(null);
-                          setImagePreview(null);
+                          // If editing, restore original image, otherwise clear
+                          if (isUpdateModalOpen && selectedStaff?.profiles?.profile_image) {
+                            setImagePreview(selectedStaff.profiles.profile_image);
+                          } else {
+                            setImagePreview(null);
+                          }
                         }}
                         style={{
                           position: 'absolute',
@@ -1222,58 +1239,57 @@ const Staff = () => {
                   )}
                 </div>
 
-                                 {/* Password */}
-                 <div>
-                   <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                     Password {!isUpdateModalOpen && '*'}
-                   </label>
-                   <input
-                     type="password"
-                     name="password"
-                     value={formData.password}
-                     onChange={handleChange}
-                     placeholder={isUpdateModalOpen ? "Leave blank to keep current password" : "Enter password"}
-                     style={{
-                       width: '100%',
-                       padding: '8px 12px',
-                       border: `1px solid ${errors.password ? '#e53e3e' : '#d1d5db'}`,
-                       borderRadius: '6px',
-                       fontSize: '14px'
-                     }}
-                   />
-                   {errors.password && (
-                     <span style={{ color: '#e53e3e', fontSize: '12px' }}>{errors.password}</span>
-                   )}
-                   {isUpdateModalOpen && (
-                     <span style={{ color: '#6b7280', fontSize: '11px' }}>
-                       Leave blank to keep current password
-                     </span>
-                   )}
-                 </div>
+                {/* Password - Only show when creating new staff */}
+                {!isUpdateModalOpen && (
+                  <>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
+                        Password *
+                      </label>
+                      <input
+                        type="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        placeholder="Enter password"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: `1px solid ${errors.password ? '#e53e3e' : '#d1d5db'}`,
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      {errors.password && (
+                        <span style={{ color: '#e53e3e', fontSize: '12px' }}>{errors.password}</span>
+                      )}
+                    </div>
 
-                 {/* Confirm Password */}
-                 <div>
-                   <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
-                     Confirm Password {!isUpdateModalOpen && '*'}
-                   </label>
-                   <input
-                     type="password"
-                     name="confirmPassword"
-                     value={formData.confirmPassword}
-                     onChange={handleChange}
-                     placeholder={isUpdateModalOpen ? "Leave blank to keep current password" : "Confirm password"}
-                     style={{
-                       width: '100%',
-                       padding: '8px 12px',
-                       border: `1px solid ${errors.confirmPassword ? '#e53e3e' : '#d1d5db'}`,
-                       borderRadius: '6px',
-                       fontSize: '14px'
-                     }}
-                   />
-                   {errors.confirmPassword && (
-                     <span style={{ color: '#e53e3e', fontSize: '12px' }}>{errors.confirmPassword}</span>
-                   )}
-                 </div>
+                    {/* Confirm Password */}
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>
+                        Confirm Password *
+                      </label>
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        placeholder="Confirm password"
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: `1px solid ${errors.confirmPassword ? '#e53e3e' : '#d1d5db'}`,
+                          borderRadius: '6px',
+                          fontSize: '14px'
+                        }}
+                      />
+                      {errors.confirmPassword && (
+                        <span style={{ color: '#e53e3e', fontSize: '12px' }}>{errors.confirmPassword}</span>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {/* Full Name */}
                 <div style={{ gridColumn: '1 / -1' }}>

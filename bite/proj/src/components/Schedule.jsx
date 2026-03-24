@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaCalendarAlt, FaPlus, FaTimes, FaInfoCircle, FaEdit, FaTrash } from 'react-icons/fa';
+import { FaCalendarAlt, FaPlus, FaTimes, FaInfoCircle, FaEdit, FaTrash, FaClock } from 'react-icons/fa';
 import { 
   getAppointmentSlots, 
   createAppointmentSlots, 
@@ -14,13 +14,7 @@ import SlotMetricsDisplay from './SlotMetricsDisplay';
 import SlotInfoDisplay from './SlotInfoDisplay';
 
 const Schedule = () => {
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  });
+  const [selectedDate, setSelectedDate] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointmentSlots, setAppointmentSlots] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -232,7 +226,7 @@ const Schedule = () => {
     
     // Add current month's days
     for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      const isSelected = formatDate(date) === selectedDate;
+      const isSelected = selectedDate !== null && formatDate(date) === selectedDate;
       days.push({ date: new Date(date), isCurrentMonth: true, isSelected });
     }
     
@@ -332,8 +326,19 @@ const Schedule = () => {
 
         {/* Right Panel - Slots Display */}
         <div className="slots-panel">
-          <h3>Slots for {selectedDate}</h3>
+          <h3>Slots for {selectedDate || 'Select a date'}</h3>
           {(() => {
+            if (!selectedDate) {
+              return (
+                <div className="empty-slots-state">
+                  <div className="empty-icon">
+                    <FaCalendarAlt size={64} />
+                  </div>
+                  <h4>No date selected</h4>
+                  <p>Click on a date in the calendar to view or manage slots.</p>
+                </div>
+              );
+            }
             const slotInfo = getSlotInfo(selectedDate);
             if (slotInfo) {
               return (
@@ -373,7 +378,9 @@ const Schedule = () => {
             } else {
               return (
           <div className="empty-slots-state">
-            <div className="empty-icon">🕐</div>
+            <div className="empty-icon">
+              <FaClock size={64} />
+            </div>
             <h4>No slots configured</h4>
             <p>Create appointment slots for this date to allow scheduling.</p>
             <div style={{
@@ -610,7 +617,7 @@ const Schedule = () => {
         </div>
       )}
 
-      <style jsx="true">{`
+      <style>{`
         .message {
           padding: 12px 16px;
           border-radius: 8px;
